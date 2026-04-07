@@ -232,6 +232,42 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// POST /api/sensor
+// Simulasi data sensor — untuk testing via Postman tanpa Arduino
+app.post("/api/sensor", (req, res) => {
+  const { device_id, soil_pct, soil_status, soil_raw } = req.body;
+
+  // Validasi input
+  if (soil_pct === undefined || soil_pct < 0 || soil_pct > 100) {
+    return res.status(400).json({ ok: false, error: "soil_pct harus antara 0-100" });
+  }
+
+  const reading = {
+    device_id:   device_id || "plantwatch-nano-001",
+    soil_pct:    parseInt(soil_pct),
+    soil_status: soil_status || getSoilStatus(parseInt(soil_pct)),
+    soil_raw:    soil_raw || null,
+    recorded_at: Date.now(),
+  };
+
+  // Simpan ke database
+  insertReading.run(reading);
+
+  // Broadcast realtime ke semua browser via Socket.io
+  io.emit("sensor:update", reading);
+
+  console.log(`[POST /api/sensor] Data dummy masuk:`, reading);
+  res.json({ ok: true, data: reading });
+});
+
+// Helper function status tanah
+function getSoilStatus(pct) {
+  if (pct < 20) return "kering";
+  if (pct < 40) return "agak_kering";
+  if (pct < 70) return "optimal";
+  return "basah";
+}
+
 // ============================================================
 // JALANKAN SERVER
 // ============================================================
